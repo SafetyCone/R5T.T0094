@@ -1,0 +1,3 @@
+R5T.T0094.Construction - Construction project for INamedIdentifiedFilePathed interface type definitions..
+
+GOALS:
