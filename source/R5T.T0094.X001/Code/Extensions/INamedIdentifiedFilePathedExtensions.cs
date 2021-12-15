@@ -2,14 +2,73 @@
 using System.Collections.Generic;
 using System.Linq;
 
+using R5T.Magyar;
+
 using R5T.T0092;
 using R5T.T0094;
+
+using Instances = R5T.T0094.X001.Instances;
 
 
 namespace System
 {
     public static class INamedIdentifiedFilePathedExtensions
     {
+        /// <summary>
+        /// Fill-in identities for the current extension method bases from corresponding repository extension method bases, or generate identities if a corresponding extension method is not found.
+        /// The repository extension method extension have identities, the current extension method bases do not.
+        /// </summary>
+        public static void FillCurrentIdentities<T>(this IEnumerable<T> currentNamedIdentifiedFilePatheds,
+            IEnumerable<T> repositoryNamedIdentifiedFilePatheds)
+            where T : INamedIdentifiedFilePathed, IMutableIdentified
+        {
+            // The repository extenson method bases have identities.
+            repositoryNamedIdentifiedFilePatheds.VerifyAllIdentitiesAreSet();
+
+            // Cannot just use the namespaced type name as the key since it might be a duplicate, but it's a good place to start.
+            var currentGroupsByName = currentNamedIdentifiedFilePatheds
+                .GroupBy(x => x.Name)
+                .ToDictionary(
+                    x => x.Key);
+
+            var repositoryGroupsByName = repositoryNamedIdentifiedFilePatheds
+                .GroupBy(x => x.Name)
+                .ToDictionary(
+                    x => x.Key);
+
+            foreach (var groupPair in currentGroupsByName)
+            {
+                var repositoryContainsNameGroup = repositoryGroupsByName.ContainsKey(groupPair.Key);
+                if (repositoryContainsNameGroup)
+                {
+                    var repositoryGroup = repositoryGroupsByName[groupPair.Key];
+                    foreach (var currentNamedIdentifiedFilePathed in groupPair.Value)
+                    {
+                        // Find the corresponding repository extension method base, if it exists.
+                        var repositoryExtensionMethodBaseOrDefault = repositoryGroup
+                            .Where(Instances.Predicate.NameAndFilePathIs<T>(currentNamedIdentifiedFilePathed.Name, currentNamedIdentifiedFilePathed.FilePath))
+                            .SingleOrDefault();
+
+                        var wasFound = repositoryExtensionMethodBaseOrDefault is object;
+                        if (wasFound)
+                        {
+                            currentNamedIdentifiedFilePathed.Identity = repositoryExtensionMethodBaseOrDefault.Identity;
+                        }
+                        else
+                        {
+                            // Fill in an identity.
+                            currentNamedIdentifiedFilePathed.SetIdentityIfNotSet();
+                        }
+                    }
+                }
+                else
+                {
+                    // Fill in identities for all extension method bases in this group.
+                    groupPair.Value.SetIdentitiesIfNotSet();
+                }
+            }
+        }
+
         public static Dictionary<string, List<string>> GetInformationByNameForDuplicateNames(this IEnumerable<INamedIdentifiedFilePathed> namedIdentifiedFilePatheds)
         {
             var output = namedIdentifiedFilePatheds
@@ -101,6 +160,39 @@ namespace System
                         .ToList());
 
             return output;
+        }
+    }
+}
+
+
+namespace System.Linq
+{
+    public static class INamedIdentifiedFilePathedExtensions
+    {
+        public static WasFound<T> FindSingleByIdentityOrThenNameAndFilePath<T>(this IEnumerable<T> namedIdentifiedFilePatheds,
+            T namedIdentifiedFilePathed)
+            where T : INamedIdentifiedFilePathed
+        {
+            var output = namedIdentifiedFilePatheds.FindSingleByIdentityOrThenNameAndFilePath(
+                namedIdentifiedFilePathed.Identity,
+                namedIdentifiedFilePathed.Name,
+                namedIdentifiedFilePathed.FilePath);
+
+            return output;
+        }   
+
+        public static WasFound<T> FindSingleByIdentityOrThenNameAndFilePath<T>(this IEnumerable<T> namedIdentifiedFilePatheds,
+            Guid identity, string name, string filePath)
+            where T : INamedIdentifiedFilePathed
+        {
+            var wasFoundByIdentity = namedIdentifiedFilePatheds.FindSingleByIdentity(identity);
+            if (wasFoundByIdentity)
+            {
+                return wasFoundByIdentity;
+            }
+
+            var wasFoundByFilePath = namedIdentifiedFilePatheds.FindSingleByNameAndFilePath(name, filePath);
+            return wasFoundByFilePath;
         }
     }
 }

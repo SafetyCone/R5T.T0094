@@ -35,4 +35,34 @@ namespace R5T.T0094
             return output;
         }
     }
+
+    public class NamedFilePathedEqualityComparer<T> : IEqualityComparer<T>
+        where T : INamedFilePathed
+    {
+        #region Static
+
+        public static NamedFilePathedEqualityComparer<T> Instance { get; } = new();
+
+        #endregion
+
+
+        public bool Equals(T x, T y)
+        {
+            var output = true
+                && x.Name == y.Name
+                && x.FilePath == y.FilePath
+                ;
+
+            return output;
+        }
+
+        public int GetHashCode(T obj)
+        {
+            var output = HashCode.Combine(
+                obj.Name,
+                obj.FilePath);
+
+            return output;
+        }
+    }
 }
