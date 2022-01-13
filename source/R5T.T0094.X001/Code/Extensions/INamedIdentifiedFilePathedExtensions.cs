@@ -14,59 +14,89 @@ namespace System
 {
     public static class INamedIdentifiedFilePathedExtensions
     {
+        public static HashSet<T> GetHashSetByDataValuesKeepFirst<T>(this IEnumerable<T> namedIdentifiedFilePatheds)
+            where T : INamedIdentifiedFilePathed
+        {
+            var output = new HashSet<T>(NamedFilePathedEqualityComparer<T>.Instance)
+                .AddRangeKeepFirst(namedIdentifiedFilePatheds)
+                ;
+
+            return output;
+        }
+
         /// <summary>
-        /// Fill-in identities for the current extension method bases from corresponding repository extension method bases, or generate identities if a corresponding extension method is not found.
-        /// The repository extension method extension have identities, the current extension method bases do not.
+        /// Fill identities for a set of <see cref="INamedIdentifiedFilePathed"/>s from a corresponding source set of <see cref="INamedIdentifiedFilePathed"/>s, matching using data values (name and file path), or generate new identities if a corresponding instance is not found.
+        /// The all items in the source set must have identities, but their identities need not be unique. In the case of duplicate identities, the identity of the first item with matching data values is used.
         /// </summary>
-        public static void FillCurrentIdentities<T>(this IEnumerable<T> currentNamedIdentifiedFilePatheds,
-            IEnumerable<T> repositoryNamedIdentifiedFilePatheds)
+        public static void FillIdentitiesFromSourceOrSetNew<T>(this IEnumerable<T> namedIdentifiedFilePatheds,
+            IEnumerable<T> sourceNamedIdentifiedFilePatheds)
             where T : INamedIdentifiedFilePathed, IMutableIdentified
         {
-            // The repository extenson method bases have identities.
-            repositoryNamedIdentifiedFilePatheds.VerifyAllIdentitiesAreSet();
+            // The source named-identifieds should all have identities.
+            sourceNamedIdentifiedFilePatheds.VerifyAllIdentitiesAreSet();
 
-            // Cannot just use the namespaced type name as the key since it might be a duplicate, but it's a good place to start.
-            var currentGroupsByName = currentNamedIdentifiedFilePatheds
-                .GroupBy(x => x.Name)
-                .ToDictionary(
-                    x => x.Key);
+            var sourceHashSet = sourceNamedIdentifiedFilePatheds.GetHashSetByDataValuesKeepFirst();
 
-            var repositoryGroupsByName = repositoryNamedIdentifiedFilePatheds
-                .GroupBy(x => x.Name)
-                .ToDictionary(
-                    x => x.Key);
-
-            foreach (var groupPair in currentGroupsByName)
+            foreach (var namedIdentifiedFilePathed in namedIdentifiedFilePatheds)
             {
-                var repositoryContainsNameGroup = repositoryGroupsByName.ContainsKey(groupPair.Key);
-                if (repositoryContainsNameGroup)
+                var existsInSource = sourceHashSet.TryGetValue(namedIdentifiedFilePathed, out var sourceNamedIdentifiedFilePathed);
+                if(existsInSource)
                 {
-                    var repositoryGroup = repositoryGroupsByName[groupPair.Key];
-                    foreach (var currentNamedIdentifiedFilePathed in groupPair.Value)
-                    {
-                        // Find the corresponding repository extension method base, if it exists.
-                        var repositoryExtensionMethodBaseOrDefault = repositoryGroup
-                            .Where(Instances.Predicate.NameAndFilePathIs<T>(currentNamedIdentifiedFilePathed.Name, currentNamedIdentifiedFilePathed.FilePath))
-                            .SingleOrDefault();
-
-                        var wasFound = repositoryExtensionMethodBaseOrDefault is object;
-                        if (wasFound)
-                        {
-                            currentNamedIdentifiedFilePathed.Identity = repositoryExtensionMethodBaseOrDefault.Identity;
-                        }
-                        else
-                        {
-                            // Fill in an identity.
-                            currentNamedIdentifiedFilePathed.SetIdentityIfNotSet();
-                        }
-                    }
+                    // Match found, set the identity.
+                    namedIdentifiedFilePathed.Identity = sourceNamedIdentifiedFilePathed.Identity;
                 }
                 else
                 {
-                    // Fill in identities for all extension method bases in this group.
-                    groupPair.Value.SetIdentitiesIfNotSet();
+                    // No match found.
+                    namedIdentifiedFilePathed.SetIdentityIfNotSet();
                 }
             }
+
+
+            //// 
+
+            //// Cannot just use name as the key since there might be a duplicates, but it's a good place to start.
+            //var currentGroupsByName = namedIdentifiedFilePatheds
+            //    .GroupBy(x => x.Name)
+            //    .ToDictionary(
+            //        x => x.Key);
+
+            //var repositoryGroupsByName = sourceNamedIdentifiedFilePatheds
+            //    .GroupBy(x => x.Name)
+            //    .ToDictionary(
+            //        x => x.Key);
+
+            //foreach (var groupPair in currentGroupsByName)
+            //{
+            //    var repositoryContainsNameGroup = repositoryGroupsByName.ContainsKey(groupPair.Key);
+            //    if (repositoryContainsNameGroup)
+            //    {
+            //        var repositoryGroup = repositoryGroupsByName[groupPair.Key];
+            //        foreach (var currentNamedIdentifiedFilePathed in groupPair.Value)
+            //        {
+            //            // Find the corresponding repository extension method base, if it exists.
+            //            var repositoryExtensionMethodBaseOrDefault = repositoryGroup
+            //                .Where(Instances.Predicate.NameAndFilePathIs<T>(currentNamedIdentifiedFilePathed.Name, currentNamedIdentifiedFilePathed.FilePath))
+            //                .SingleOrDefault();
+
+            //            var wasFound = repositoryExtensionMethodBaseOrDefault is object;
+            //            if (wasFound)
+            //            {
+            //                currentNamedIdentifiedFilePathed.Identity = repositoryExtensionMethodBaseOrDefault.Identity;
+            //            }
+            //            else
+            //            {
+            //                // Fill in an identity.
+            //                currentNamedIdentifiedFilePathed.SetIdentityIfNotSet();
+            //            }
+            //        }
+            //    }
+            //    else
+            //    {
+            //        // Fill in identities for all extension method bases in this group.
+            //        groupPair.Value.SetIdentitiesIfNotSet();
+            //    }
+            //}
         }
 
         public static Dictionary<string, List<string>> GetInformationByNameForDuplicateNames(this IEnumerable<INamedIdentifiedFilePathed> namedIdentifiedFilePatheds)
