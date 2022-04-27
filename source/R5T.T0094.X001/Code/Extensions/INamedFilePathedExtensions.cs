@@ -61,11 +61,32 @@ namespace System
 
             return output;
         }
+    }
+}
 
-        public static void VerifyDistinctByNamedFilePathedData<T>(this IEnumerable<T> extensionMethodBases)
+
+namespace System.Linq
+{
+    public static class INamedFilePathedExtensions
+    {
+        public static Dictionary<NamedFilePathed, T[]> GetDuplicateNamedFilePathedSets<T>(this IEnumerable<T> namedFiledPatheds)
             where T : INamedFilePathed
         {
-            extensionMethodBases.Cast<INamedFilePathed>().VerifyDistinct(NamedFilePathedEqualityComparer.Instance);
+            var output = namedFiledPatheds
+                .WhereDuplicates(
+                    x => x.GetNamedFilePathed(),
+                    NamedFilePathedEqualityComparer<NamedFilePathed>.Instance)
+                .ToDictionary(
+                    x => x.Key,
+                    x => x.ToArray());
+
+            return output;
+        }
+
+        public static void VerifyDistinctByNamedFilePathedData<T>(this IEnumerable<T> namedFiledPatheds)
+            where T : INamedFilePathed
+        {
+            namedFiledPatheds.Cast<INamedFilePathed>().VerifyDistinct(NamedFilePathedEqualityComparer.Instance);
         }
     }
 }
